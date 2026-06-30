@@ -1,90 +1,122 @@
 <template>
-  <div class="min-h-screen bg-gray-100 p-6">
-    <div class="max-w-4xl mx-auto bg-white shadow-md rounded-lg overflow-hidden">
-      
-      <div class="bg-blue-600 text-white p-6 flex justify-between items-center">
-        <div>
-          <h1 class="text-2xl font-bold">Teacher Attendance Portal</h1>
-          <p class="text-sm opacity-90">Mark attendance for your class</p>
-        </div>
-        <div class="bg-blue-700 px-4 py-2 rounded text-sm font-semibold">
-          Date: {{ currentDate }}
-        </div>
-      </div>
+  <div class="min-h-screen bg-cover bg-center relative" :style="{ backgroundImage: `url('/assets/bg.jpg')` }" >
 
-      <div class="p-6">
-        <h2 class="text-xl font-semibold text-gray-700 mb-4">Student Roster</h2>
-        
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="bg-gray-50 border-b border-gray-200">
-                <th class="p-4 font-semibold text-gray-600">Roll No.</th>
-                <th class="p-4 font-semibold text-gray-600">Student Name</th>
-                <th class="p-4 font-semibold text-gray-600 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="student in students" :key="student.id" class="border-b border-gray-100 hover:bg-gray-50">
-                <td class="p-4 font-mono text-sm text-gray-600">{{ student.roll_number }}</td>
-                <td class="p-4 font-medium text-gray-800">{{ student.name }}</td>
-                <td class="p-4 text-center">
-                  <div class="inline-flex rounded-md shadow-sm" role="group">
-                    <button 
-                      @click="markAttendance(student.id, 'PRESENT')"
-                      :class="[
-                        'px-4 py-2 text-sm font-medium rounded-l-lg border',
-                        attendance[student.id] === 'PRESENT' 
-                          ? 'bg-green-500 text-white border-green-500' 
-                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                      ]"
-                    >
-                      Present
-                    </button>
-                    <button 
-                      @click="markAttendance(student.id, 'ABSENT')"
-                      :class="[
-                        'px-4 py-2 text-sm font-medium rounded-r-lg border-t border-b border-r',
-                        attendance[student.id] === 'ABSENT' 
-                          ? 'bg-red-500 text-white border-red-500' 
-                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                      ]"
-                    >
-                      Absent
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="mt-6 flex justify-end">
-          <button 
-            @click="submitAttendance"
-            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg shadow transition"
-          >
-            Save Attendance
-          </button>
-        </div>
-
-      </div>
+<!-- HEADER -->
+<div class="sticky top-0 z-50 backdrop-blur bg-white/70 border-b">
+  <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800">📚 Teacher Attendance</h1>
+      <p class="text-sm text-gray-500">{{ currentDate }}</p>
     </div>
+
+    <div class="flex gap-2">
+      <button 
+  @click="markAll('PRESENT')" 
+  class="bg-green-500 text-white px-3 py-2 rounded-lg text-sm">
+  Mark All Present
+</button>
+
+<button 
+  @click="markAll('ABSENT')" 
+  class="bg-red-500 text-white px-3 py-2 rounded-lg text-sm">
+  Mark All Absent
+</button>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-6xl mx-auto p-6">
+
+  <!-- SEARCH + PROGRESS -->
+  <div class="flex justify-between items-center mb-4">
+    <input v-model="search" placeholder="Search student..."
+      class="px-4 py-2 border rounded-lg w-64 focus:ring-2 focus:ring-blue-400"/>
+
+    <div class="text-sm text-gray-600">
+      {{ completedCount }}/{{ students.length }} marked
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div v-if="isLoading" class="space-y-3">
+    <div v-for="i in 6" :key="i" class="h-12 bg-gray-200 rounded animate-pulse"></div>
+  </div>
+
+  <!-- TABLE -->
+  <div v-else class="bg-white rounded-xl shadow overflow-hidden">
+    <table class="w-full">
+      <thead class="bg-gray-50 text-gray-600 text-sm">
+        <tr>
+          <th class="p-4 text-left">Roll</th>
+          <th class="p-4 text-left">Name</th>
+          <th class="p-4 text-center">Status</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr v-for="student in filteredStudents" :key="student.id"
+          class="border-t hover:bg-gray-50 transition">
+
+          <td class="p-4 font-mono text-sm">{{ student.roll_number }}</td>
+          <td class="p-4 font-medium">{{ student.name }}</td>
+
+          <td class="p-4 text-center">
+            <div class="flex justify-center gap-2">
+
+          <button
+            @click="markAttendance(student.id, 'PRESENT')"
+            :class="[
+              'px-3 py-1 rounded-full text-sm border',
+              attendance[student.id] === 'PRESENT'
+                ? 'bg-green-500 text-white border-green-500'
+                : 'bg-white text-gray-600'
+            ]"
+          >
+            ✔ Present
+          </button>
+          <button
+            @click="markAttendance(student.id, 'ABSENT')"
+            :class="[
+            'px-3 py-1 rounded-full text-sm border',
+            attendance[student.id] === 'ABSENT'
+              ? 'bg-red-500 text-white border-red-500'
+              : 'bg-white text-gray-600'
+          ]"
+          >
+            ✔ Absent
+          </button>
+
+            </div>
+          </td>
+
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- SAVE BAR -->
+<div class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-between items-center">
+  <p class="text-sm text-gray-600">
+    Ready to save today's attendance
+  </p>
+
+  <button
+    :disabled="completedCount !== students.length || saving"
+    @click="submitAttendance"
+    class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg shadow">
+    {{ saving ? 'Saving...' : 'Save Attendance' }}
+  </button>
+</div>
+
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue' // <-- Added onMounted here
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
-
-// Format today's date for display and API payloads
-const rawDate = new Date()
-const currentDateApi = rawDate.toISOString().split('T')[0]
-
-// Format today's date nicely
-const currentDate = new Date().toLocaleDateString('en-US', {
-   timeZone: 'Asia/Kolkata', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-})
 
 interface Student {
   id: number;
@@ -92,60 +124,87 @@ interface Student {
   roll_number: string;
 }
 
-// Start with an empty array so Django can fill it!
 const students = ref<Student[]>([])
 const attendance = ref<Record<number, string>>({})
 const isLoading = ref(true)
+const saving = ref(false)
+const search = ref('')
 
-// 1. Fetch live student records from Django when the portal loads
+// DATE
+const rawDate = new Date()
+const currentDateApi = rawDate.toISOString().split('T')[0]
+
+const currentDate = new Date().toLocaleDateString('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  weekday: 'long',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric'
+})
+
+// FETCH
 onMounted(async () => {
   try {
-    const response = await axios.get<Student[]>('http://127.0.0.1:8000/api/students/')
-    students.value = response.data // <-- This puts your database records into the UI
-    
-    // Pre-populate all live students to 'PRESENT' status automatically
-    students.value.forEach(student => {
-      attendance.value[student.id] = 'PRESENT'
+    const res = await axios.get('http://127.0.0.1:8000/api/students/')
+    students.value = res.data
+
+    students.value.forEach(s => {
+      attendance.value[s.id] = 'PRESENT'
     })
-  } catch (error: any) {
-    console.error("Error fetching students:", error)
-    alert(`Failed to load student roster: ${error.message}`)
+
+  } catch (err) {
+    console.error(err)
   } finally {
     isLoading.value = false
   }
 })
 
-const markAttendance = (studentId: number, status: string) => {
-  attendance.value[studentId] = status
+// COMPUTED
+const filteredStudents = computed(() =>
+  students.value.filter(s =>
+    s.name.toLowerCase().includes(search.value.toLowerCase()) ||
+    s.roll_number.includes(search.value)
+  )
+)
+
+const completedCount = computed(() =>
+  Object.keys(attendance.value).length
+)
+
+// ACTIONS
+const markAttendance = (id: number, status: string) => {
+  attendance.value[id] = status
 }
 
-// 2. Submit saved attendance rows back to your Django DB
+const markAll = (status: string) => {
+  students.value.forEach(s => {
+    attendance.value[s.id] = status
+  })
+}
+
+// SAVE
 const submitAttendance = async () => {
-  let savedCount = 0;
-  let duplicateCount = 0;
+  saving.value = true
 
-  // Loops sequentially to handle database writes cleanly
-  for (const student of students.value) {
-    try {
-      await axios.post('http://127.0.0.1:8000/api/attendance/', {
-        student: student.id,
-        date: currentDateApi,
-        status: attendance.value[student.id]
-      })
-      savedCount++;
-    } catch (error: any) {
-      if (error.response?.status === 400 && JSON.stringify(error.response.data).includes('unique')) {
-        duplicateCount++;
-      } else {
-        console.error("Unexpected error for student:", student.id, error)
-      }
-    }
-  }
+  try {
+    await Promise.all(
+      students.value.map(s =>
+        axios.post('http://127.0.0.1:8000/api/attendance/', {
+          student: s.id,
+          date: currentDateApi,
+          status: attendance.value[s.id]
+        })
+      )
+    )
 
-  if (savedCount > 0) {
-    alert(`🎉 Successfully saved attendance for ${savedCount} students!`);
-  } else if (duplicateCount > 0) {
-    alert("⚠️ Attendance for today has already been locked in. To change it, update the existing rows in Django Admin.");
+    alert('✅ Attendance saved successfully')
+
+  } catch (err) {
+    alert('❌ Error saving attendance')
+  } finally {
+    saving.value = false
   }
 }
 </script>
+
+
